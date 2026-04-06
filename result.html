@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+body {
+    font-family: Arial;
+    background: rgb(26,13,171);
+    color: white;
+    text-align: center;
+}
+
+.card {
+    background: #1f1f7a;
+    padding: 20px;
+    border-radius: 15px;
+    max-width: 1000px;
+    margin: auto;
+}
+
+.flex {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.box {
+    flex: 1;
+    min-width: 300px;
+}
+
+#map {
+    height: 350px;
+    border-radius: 10px;
+}
+
+canvas {
+    height: 350px !important;
+}
+
+/* BUTTON */
+.download-btn {
+    margin-top: 20px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 10px;
+    background: #f28c8c;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.download-btn:hover {
+    background: #e06666;
+}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+
+<h2>{{ data.result }}</h2>
+<p>Confidence: {{ data.confidence }}%</p>
+
+<div class="flex">
+
+<div class="box">
+<canvas id="chart"></canvas>
+</div>
+
+<div class="box">
+<div id="map"></div>
+</div>
+
+</div>
+
+<h3>Recommended Doctors</h3>
+<ul>
+{% for d in data.doctors %}
+<li>{{ d }}</li>
+{% endfor %}
+</ul>
+
+<!-- ✅ BUTTON OUTSIDE SCRIPT -->
+<button class="download-btn" onclick="downloadPDF()">📄 Download Report</button>
+
+</div>
+
+<script>
+// ===== PIE CHART =====
+const labels = {{ data.labels|tojson }};
+const values = {{ data.scores|tojson }};
+
+new Chart(document.getElementById("chart"), {
+    type: "pie",
+    data: {
+        labels: labels,
+        datasets: [{
+            data: values,
+            backgroundColor: [
+                "#1a0dab","#ff6384","#36a2eb",
+                "#ffce56","#4bc0c0","#9966ff","#ff9f40"
+            ]
+        }]
+    }
+});
+
+// ===== MAP =====
+navigator.geolocation.getCurrentPosition(async pos => {
+
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+
+    const map = L.map('map').setView([lat, lng], 13);
+
+    // OSM tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+        .addTo(map);
+
+    // User marker
+    L.marker([lat, lng]).addTo(map)
+        .bindPopup("📍 You are here")
+        .openPopup();
+
+    // ✅ FIXED OVERPASS QUERY (node + way + relation)
+    const query = `
+    [out:json][timeout:25];
+    (
+      node["amenity"~"hospital|clinic"](around:5000,${lat},${lng});
+      way["amenity"~"hospital|clinic"](around:5000,${lat},${lng});
+      relation["amenity"~"hospital|clinic"](around:5000,${lat},${lng});
+    );
+    out center;
+    `;
+
+    try {
+        const res = await fetch("https://overpass-api.de/api/interpreter", {
+            method: "POST",
+            body: query
+        });
+
+        const data = await res.json();
+
+        console.log("Overpass Data:", data);
+
+        if(data.elements.length === 0){
+            alert("No hospitals found nearby");
+        }
+
+        data.elements.forEach(p => {
+
+            let latVal = p.lat || p.center?.lat;
+            let lonVal = p.lon || p.center?.lon;
+
+            if(latVal && lonVal){
+                L.marker([latVal, lonVal])
+                .addTo(map)
+                .bindPopup("🏥 " + (p.tags?.name || "Unnamed Hospital"));
+            }
+
+        });
+
+    } catch(err){
+        console.error("Overpass error:", err);
+        alert("Error loading hospitals");
+    }
+
+}, () => {
+    alert("Location permission denied");
+});
+
+
+// ===== DOWNLOAD PDF =====
+function downloadPDF(){
+    const canvas = document.getElementById("chart");
+    const image = canvas.toDataURL("image/png");
+
+    fetch("/download-report", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ chart: image })
+    })
+    .then(res => res.blob())
+    .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "Thyroid_Report.pdf";
+        a.click();
+    });
+}
+</script>
+
+</body>
+</html>

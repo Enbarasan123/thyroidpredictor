@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body{
+    font-family:Arial;
+    background:rgb(26,13,171);
+    color:white;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+
+.card{
+    background:white;
+    color:black;
+    padding:30px;
+    border-radius:20px;
+    width:350px;
+    text-align:center;
+    box-shadow:0 15px 40px rgba(0,0,0,0.3);
+}
+
+h2{margin-bottom:20px;}
+
+input, select{
+    width:100%;
+    padding:10px;
+    margin:10px 0;
+    border-radius:10px;
+    border:1px solid #ccc;
+}
+
+button{
+    width:100%;
+    padding:10px;
+    margin-top:10px;
+    border:none;
+    border-radius:10px;
+    background:rgb(26,13,171);
+    color:white;
+    cursor:pointer;
+}
+
+.voice{
+    background:#444;
+}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+<h2 id="q"></h2>
+<div id="input"></div>
+
+<button onclick="next()">Next</button>
+<button class="voice" onclick="voice()">🎤 Tamil Voice</button>
+</div>
+
+<script>
+let f={{ features|tojson }};
+let qn={{ questions|tojson }};
+let i=0, ans={};
+
+function show(){
+    let key=f[i];
+    document.getElementById("q").innerText=qn[key];
+
+    if(key=="age"||["t3","tt4","tsh"].includes(key)){
+        input.innerHTML=`<input id="val" placeholder="Enter value">`;
+    }
+    else if(key=="sex"){
+        input.innerHTML=`<select id="val">
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+        </select>`;
+    }
+    else{
+        input.innerHTML=`<select id="val">
+        <option value="yes">Yes</option>
+        <option value="no">No</option>
+        </select>`;
+    }
+}
+
+function next(){
+    let v=document.getElementById("val").value;
+    ans[f[i]]=v;
+
+    i++;
+
+    if(i>=f.length){
+        fetch("/submit-quiz",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify(ans)
+        })
+        .then(r=>r.json())
+        .then(r=>location=r.redirect);
+    }else{
+        show();
+    }
+}
+
+function voice(){
+    let r=new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    r.lang="ta-IN";
+
+    r.onresult=e=>{
+        let t=e.results[0][0].transcript;
+
+        if(t.includes("ஆம்")) val.value="yes";
+        if(t.includes("இல்லை")) val.value="no";
+        if(t.includes("ஆண்")) val.value="male";
+        if(t.includes("பெண்")) val.value="female";
+    };
+
+    r.start();
+}
+
+show();
+</script>
+
+</body>
+</html>
+

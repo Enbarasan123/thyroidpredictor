@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login</title>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+}
+
+body {
+    height: 100vh;
+    background: linear-gradient(135deg, #1a0dab, #b19cd9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.container {
+    width: 100%;
+    max-width: 400px;
+    padding: 20px;
+}
+
+.login-card {
+    background: rgba(255,255,255,0.95);
+    padding: 35px 25px;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    text-align: center;
+}
+
+h2 {
+    color: #1a0dab;
+    margin-bottom: 20px;
+}
+
+.input-group {
+    position: relative;
+    margin-bottom: 18px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #b19cd9;
+    background: #f5f0ff;
+}
+
+/* Button */
+button {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    background: #f28c8c;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #e06666;
+}
+
+/* Toggle */
+.toggle {
+    margin-top: 15px;
+    cursor: pointer;
+    color: #1a0dab;
+}
+
+/* Error */
+.error {
+    color: red;
+    margin-top: 10px;
+    font-size: 14px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+    <div class="login-card">
+        <h2 id="title">Login</h2>
+
+        <div class="input-group" id="nameBox" style="display:none;">
+            <input type="text" id="name" placeholder="Name">
+        </div>
+
+        <div class="input-group">
+            <input type="email" id="email" placeholder="Email">
+        </div>
+
+        <div class="input-group">
+            <input type="password" id="password" placeholder="Password">
+        </div>
+
+        <button onclick="submitForm()">Submit</button>
+
+        <div class="toggle" onclick="toggleMode()">
+            Switch to Signup
+        </div>
+
+        <div class="error" id="error"></div>
+    </div>
+</div>
+
+<script>
+let isLogin = true;
+
+function toggleMode() {
+    isLogin = !isLogin;
+
+    document.getElementById("title").innerText = isLogin ? "Login" : "Signup";
+    document.getElementById("nameBox").style.display = isLogin ? "none" : "block";
+    document.querySelector(".toggle").innerText =
+        isLogin ? "Switch to Signup" : "Switch to Login";
+}
+
+function submitForm() {
+    let email = document.getElementById("email").value;
+    let password = document.getElementById("password").value;
+    let name = document.getElementById("name").value;
+
+    fetch("/auth", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            email: email,
+            password: password,
+            name: name,
+            isLogin: isLogin
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            window.location = data.redirect;
+        } else {
+            document.getElementById("error").innerText =
+                isLogin ? "Invalid login!" : "User already exists!";
+        }
+    });
+}
+</script>
+
+</body>
+</html>
